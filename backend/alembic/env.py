@@ -10,7 +10,10 @@ load_dotenv()
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.database import Base
-# import app.models  # noqa: F401 — ensures all models are registered
+
+# Explicitly import ALL models so Alembic can detect them
+# If you skip this, autogenerate produces empty migrations
+import app.models  # noqa: F401 — registers all SQLAlchemy models with Base
 
 config = context.config
 

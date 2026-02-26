@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-# from app.routes import router
+from app.routers import ingest
 
 
 @asynccontextmanager
@@ -30,6 +30,8 @@ def health_check():
         "status": "ok",
         "service": "lender-matching-platform-apis"
     }
+
+app.include_router(ingest.router, prefix="/ingest", tags=["Ingestion"])
 
 
 
