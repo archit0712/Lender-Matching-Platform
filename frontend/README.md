@@ -8,9 +8,9 @@ Next.js frontend for **LenderMatch**: submit loan applications, view lender matc
 
 The frontend is the user-facing side of the Lender Matching Platform. It talks to the FastAPI backend (see `../backend/README.md`) for:
 
-- **Applications** — Multi-step application form; submit and get matched to lenders.
-- **Lenders** — List lenders, view/edit rules and programs (API ready; UI partially or not yet built).
-- **Ingestion** — Upload lender PDFs, review extracted rules, approve/reject (API ready; UI not yet built).
+- **Applications** — Multi-step application form; submit and view match results (list + detail with criteria).
+- **Lenders** — List lenders, view lender detail with rules and programs; edit/delete rules (programs are view-only).
+- **Ingestion** — Upload lender PDFs, list ingestions, review extracted rules/programs, and approve or reject.
 
 ---
 
@@ -23,6 +23,7 @@ The frontend is the user-facing side of the Lender Matching Platform. It talks t
 | UI | **React 19**, **Tailwind CSS 4**, **shadcn/ui** (Radix primitives) |
 | HTTP | **axios** |
 | Toasts | **sonner** |
+| Icons | **lucide-react** |
 | Font | **Inter** (next/font) |
 
 ---
@@ -32,64 +33,86 @@ The frontend is the user-facing side of the Lender Matching Platform. It talks t
 ```
 frontend/
 ├── app/
-│   ├── layout.tsx          # Root layout: Nav + main; metadata (LenderMatch)
-│   ├── page.tsx            # Home: 3 cards → Apply, Lenders, Upload PDF
-│   ├── globals.css         # Tailwind + shadcn theme variables
+│   ├── layout.tsx              # Root layout: Nav + main; metadata (LenderMatch)
+│   ├── page.tsx                # Home: 3 cards → Apply, Lenders, Upload PDF
+│   ├── globals.css              # Tailwind + shadcn theme variables
 │   ├── apply/
-│   │   └── page.tsx        # New Application — 4-step form, submit → redirect to /applications/:id
-│   ├── lenders/            # (not yet) Lender list + detail + rule edit
-│   ├── ingest/             # (not yet) PDF upload + review/approve
-│   └── applications/       # (not yet) Application list + detail (match results)
+│   │   └── page.tsx            # New Application — 4-step form, submit → redirect to /applications/:id
+│   ├── applications/
+│   │   ├── page.tsx            # Applications list: table, status, eligibility, best fit, link to detail
+│   │   └── [id]/page.tsx       # Application detail: borrower + loan summary, match results, criteria, re-run
+│   ├── lenders/
+│   │   ├── page.tsx            # Lender list: table, click row → detail
+│   │   └── [id]/page.tsx       # Lender detail: rules (edit/delete) + programs (view-only) tabs
+│   ├── ingest/
+│   │   ├── page.tsx            # Upload PDF + list ingestions; link to review
+│   │   └── [id]/page.tsx       # Ingestion review: extracted rules/programs, approve/reject (with optional edits)
+│   └── ...
 ├── components/
-│   ├── nav.tsx             # Top nav: Home, New Application, Lender Policies, Upload PDF
-│   └── ui/                 # shadcn components
-│       ├── badge.tsx
-│       ├── button.tsx
-│       ├── card.tsx
-│       ├── dialog.tsx
-│       ├── input.tsx
-│       ├── label.tsx
-│       ├── select.tsx
-│       ├── separator.tsx
-│       ├── sonner.tsx
-│       ├── switch.tsx
-│       └── table.tsx
+│   ├── nav.tsx                 # Top nav: Home, New Application, Lender Policies, Upload PDF
+│   └── ui/                     # shadcn components (badge, button, card, dialog, input, label, select, etc.)
 ├── lib/
-│   ├── api.ts              # All backend API calls (applications, lenders, ingest)
-│   ├── types.ts            # TS interfaces: Application, Lender, Ingestion, form data, etc.
-│   └── utils.ts            # cn() (classnames)
+│   ├── api.ts                  # All backend API calls (applications, lenders, ingest)
+│   ├── types.ts                # TS interfaces: Application, Lender, Ingestion, form data, etc.
+│   └── utils.ts                # cn() (classnames)
 ├── public/
 ├── package.json
-├── next.config.ts          # reactCompiler: true
+├── next.config.ts              # reactCompiler: true
 ├── tsconfig.json
-└── README.md                # This file
+└── README.md                   # This file
 ```
 
 ---
 
-## What’s Built Today
+## What’s Built
 
 ### 1. Home (`/`)
 
 - **LenderMatch** heading and short tagline.
-- Three cards:
-  - **New Application** → `/apply`
-  - **Lender Policies** → `/lenders`
-  - **Upload PDF** → `/ingest`
+- Three cards: **New Application** → `/apply`, **Lender Policies** → `/lenders`, **Upload PDF** → `/ingest`.
 
 ### 2. New Application (`/apply`)
 
 - **4-step wizard**: Business Info → Guarantor → Business Credit → Loan Request.
-- **Business Info**: name, industry, state, years in business, revenue; “Number of trucks” only when industry is trucking.
-- **Guarantor**: name, FICO, ownership %, homeowner, CDL, bankruptcy (with years since discharge when applicable).
+- **Business Info**: name, industry, state, years in business, revenue; “Number of trucks” when industry is trucking.
+- **Guarantor**: name, FICO, ownership %, homeowner, CDL, bankruptcy (years since discharge when applicable).
 - **Business Credit**: PayNet score, comparable credit amount (optional).
 - **Loan Request**: amount, equipment type/year, mileage, private party toggle.
-- **Validation** per step; on Submit, payload is sent via `submitApplication()` (POST `/applications`). On success, **redirects to `/applications/{id}`** (that page is not implemented yet — will 404).
+- Validation per step; on Submit, payload is sent via `submitApplication()` (POST `/applications`). On success, **redirects to `/applications/{id}`**.
 - Progress indicator and Back/Next/Submit buttons.
 
-### 3. API client (`lib/api.ts`)
+### 3. Applications list (`/applications`)
 
-Fully wired for:
+- `listApplications()` → table with status badge, eligibility summary (X / N lenders), best fit score.
+- Link each row to `/applications/[id]`. Refresh and “New Application” button.
+
+### 4. Application detail (`/applications/[id]`)
+
+- `getApplication(id)` → borrower summary, loan request summary, and **match results** per lender.
+- Each lender: eligible yes/no, fit score, expandable **criteria** table (pass/fail, actual/required, explanation).
+- **Re-run matching** button calls `rerunUnderwriting(id)`; toasts for success/error.
+
+### 5. Lenders list (`/lenders`)
+
+- `listLenders()` → table; click row → `/lenders/[id]`. Loading and error states with retry.
+
+### 6. Lender detail (`/lenders/[id]`)
+
+- `getLender(id)` → **Rules** tab: inline edit (value, description, is_hard_stop, is_active), save via `updateRule`, delete via `deleteRule`; toasts.
+- **Programs** tab: read-only table (name, min/max amount, credit tier, description). Create/update/delete programs not implemented in the UI (backend supports it).
+
+### 7. Ingest upload & list (`/ingest`)
+
+- **Upload**: drag-and-drop or file picker; `uploadPDF(file)` → toast and redirect to `/ingest/[id]`.
+- **List**: `listIngestions()` → table (filename, status, created_at); link to review page. Refresh and loading states.
+
+### 8. Ingestion review (`/ingest/[id]`)
+
+- `getIngestion(id)` → extracted lender name, rules, and programs (with source_quote). Polling while status is `PENDING_REVIEW` (extraction in progress).
+- **Editable** rules/programs before approve (value, description, is_hard_stop, etc.).
+- **Approve** → `approveIngestion(id, payload)` (creates Lender + rules + programs); **Reject** → `rejectIngestion(id)`. Toasts and redirect.
+
+### 9. API client (`lib/api.ts`)
 
 - **Applications**: `submitApplication`, `getApplication`, `listApplications`, `rerunUnderwriting`
 - **Lenders**: `listLenders`, `getLender`, `updateRule`, `deleteRule`
@@ -97,54 +120,26 @@ Fully wired for:
 
 Base URL: `process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001"`.
 
-### 4. Types (`lib/types.ts`)
+### 10. Types (`lib/types.ts`)
 
 - **Lender**: `Lender`, `PolicyRule`, `LenderProgram`
 - **Application**: `Application`, `Borrower`, `PersonalGuarantor`, `BusinessCredit`, `LoanRequest`, `MatchResult`, `CriteriaDetail`
 - **Ingestion**: `Ingestion` with nested `extracted` (rules, programs, lender name, etc.)
-- **Form**: `ApplicationFormData` — flat structure used by the apply form and mapped to API payload in `api.ts`
+- **Form**: `ApplicationFormData` — flat structure for the apply form, mapped to API payload in `api.ts`
 
-### 5. Navigation & layout
+### 11. Navigation & UI
 
 - **Nav** highlights current route (Home, New Application, Lender Policies, Upload PDF).
 - **Layout** wraps all pages with Nav + `<main className="max-w-6xl mx-auto px-6 py-8">`.
-
-### 6. UI components
-
-- shadcn-based: Button, Card, Input, Label, Select, Switch, Badge, Dialog, Separator, Table, Sonner (toasts). Styling via Tailwind and `globals.css` theme.
+- **shadcn** components: Button, Card, Input, Label, Select, Switch, Badge, Dialog, Separator, Table, Sonner. Styling via Tailwind and `globals.css`.
 
 ---
 
-## What’s Not Built Yet (Future Work)
+## Possible Future Work
 
-These are the natural next steps given the existing API and types:
-
-1. **Application result page** (`/applications/[id]`)
-   - After submit, the app redirects here but the route doesn’t exist.
-   - **Suggested**: Load `getApplication(id)`, show borrower + loan request summary and a **match results** list (lender name, eligible yes/no, fit score, expandable criteria per lender). Optionally a “Re-run matching” button calling `rerunUnderwriting(id)`.
-
-2. **Applications list** (`/applications` or linked from home)
-   - **Suggested**: `listApplications()`, table or cards with link to `/applications/[id]`.
-
-3. **Lender Policies** (`/lenders`)
-   - **Suggested**: `listLenders()` → table of lenders; click → lender detail page with rules and programs; inline edit/delete rules using `updateRule`, `deleteRule` (and equivalent for programs if backend supports).
-
-4. **Lender detail** (`/lenders/[id]`)
-   - Show one lender with rules and programs; edit rules (value, description, is_active, is_hard_stop), add/remove rules or programs as the API allows.
-
-5. **PDF ingest** (`/ingest`)
-   - **Upload**: `uploadPDF(file)` → show ingestion_id and workflow_run_id; optional polling or status.
-   - **List**: `listIngestions()` → table of ingestions (filename, status, created_at).
-   - **Review**: `getIngestion(id)` → show extracted lender name, rules, programs (with source_quote); allow approve (with optional edits) via `approveIngestion(id, payload)` or reject via `rejectIngestion(id)`.
-
-6. **Error handling & toasts**
-   - Use Sonner in layout; on API errors (e.g. submit failure), show a toast and/or inline message (apply page already shows inline submit error).
-
-7. **Environment**
-   - Document `NEXT_PUBLIC_API_URL` for production (e.g. in `.env.example`).
-
-8. **Auth (optional)**
-   - If the backend adds auth, add login/logout and send tokens (e.g. in axios interceptors).
+- **Lender programs CRUD in UI** — Backend supports create/update/delete programs; frontend lender detail only shows programs (read-only). Add forms and API calls for program management.
+- **Environment** — Document `NEXT_PUBLIC_API_URL` in root `.env.example` for production.
+- **Auth** — If the backend adds auth, add login/logout and send tokens (e.g. in axios interceptors).
 
 ---
 
@@ -163,7 +158,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The app will call the API at `http://localhost:8001` unless you set `NEXT_PUBLIC_API_URL`.
+Open [http://localhost:3000](http://localhost:3000). The app calls the API at `http://localhost:8001` unless you set `NEXT_PUBLIC_API_URL`.
 
 ### Build
 
@@ -184,13 +179,13 @@ npm run lint
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_API_URL` | Backend base URL (default: `http://localhost:8001`) |
+| `NEXT_PUBLIC_API_URL` | Backend base URL (default in code: `http://localhost:8001`) |
 
-Create `.env.local` in `frontend/` if you need to override (e.g. for a different port or deployed API).
+Create `.env.local` in `frontend/` to override (e.g. different port or deployed API).
 
 ---
 
 ## Summary
 
-- **Done**: Home, 4-step apply form, API client and types for applications/lenders/ingest, nav, shadcn UI.
-- **Next**: Application result page (`/applications/[id]`), applications list, lenders list/detail and rule editing, ingest upload + list + review/approve, and consistent error/toast handling. The backend and frontend API layer are ready for these screens.
+- **Done**: Home, 4-step apply form, applications list and detail (with match results and re-run), lenders list and detail (rule edit/delete, programs view-only), ingest upload + list + review/approve with editable rules, API client and types, nav, shadcn UI, Sonner toasts.
+- **Optional next**: Program CRUD on lender detail, env docs, auth when backend supports it.
