@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routers import ingest
+from app.routers import ingest , applications, lenders
 
 
 @asynccontextmanager
@@ -32,6 +32,8 @@ def health_check():
     }
 
 app.include_router(ingest.router, prefix="/ingest", tags=["Ingestion"])
+app.include_router(applications.router, prefix="/applications", tags=["Applications"])
+app.include_router(lenders.router, prefix="/lenders", tags=["Lenders"])
 
 
 

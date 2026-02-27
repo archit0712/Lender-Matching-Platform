@@ -9,7 +9,8 @@ POST /ingest/{id}/reject  → admin rejects: marks ingestion as rejected
 """
 import base64
 import json
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Body
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import (
@@ -160,7 +161,7 @@ def get_ingestion(ingestion_id: int, db: Session = Depends(get_db)):
 @router.post("/{ingestion_id}/approve")
 def approve_ingestion(
     ingestion_id: int,
-    payload: dict,          # {"rules": [...], "programs": [...]}
+    payload: Optional[dict] = Body(default=None),
     db: Session = Depends(get_db),
 ):
     """
@@ -178,6 +179,7 @@ def approve_ingestion(
     if ingestion.status == IngestionStatus.APPROVED:
         raise HTTPException(status_code=400, detail="Already approved")
 
+    payload = payload or {}
     raw = json.loads(ingestion.extracted_json) if ingestion.extracted_json else {}
 
     # Create the Lender row
