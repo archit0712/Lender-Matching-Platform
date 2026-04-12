@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 from app.models import RuleType, Operator, ApplicationStatus
-
+from uuid import UUID
 
 class PersonalGuarantorCreate(BaseModel):
     full_name:                 str
@@ -52,3 +52,120 @@ class LoanRequestCreate(BaseModel):
 class ApplicationCreate(BaseModel):
     borrower:     BorrowerCreate
     loan_request: LoanRequestCreate
+
+
+
+# ---------------------------------------------------------------------------
+# Line Item
+# ---------------------------------------------------------------------------
+class InvoiceLineItemBase(BaseModel):
+    line_number: Optional[int] = None
+    description: Optional[str] = None
+    sku: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    unit_price: Optional[float] = None
+    discount: Optional[float] = None
+    tax: Optional[float] = None
+    amount: Optional[float] = None
+ 
+ 
+class InvoiceLineItemOut(InvoiceLineItemBase):
+    id: UUID
+ 
+    class Config:
+        from_attributes = True
+ 
+ 
+# ---------------------------------------------------------------------------
+# Invoice
+# ---------------------------------------------------------------------------
+class InvoiceBase(BaseModel):
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+    due_date: Optional[str] = None
+    po_number: Optional[str] = None
+    currency: Optional[str] = "USD"
+ 
+    vendor_name: Optional[str] = None
+    vendor_address: Optional[str] = None
+    vendor_tax_id: Optional[str] = None
+    vendor_email: Optional[str] = None
+    vendor_phone: Optional[str] = None
+ 
+    buyer_name: Optional[str] = None
+    buyer_address: Optional[str] = None
+    buyer_tax_id: Optional[str] = None
+ 
+    ship_to_name: Optional[str] = None
+    ship_to_address: Optional[str] = None
+ 
+    subtotal: Optional[float] = None
+    tax_amount: Optional[float] = None
+    tax_rate: Optional[float] = None
+    discount_amount: Optional[float] = None
+    shipping_amount: Optional[float] = None
+    total_amount: Optional[float] = None
+    amount_due: Optional[float] = None
+ 
+    payment_terms: Optional[str] = None
+    payment_method: Optional[str] = None
+    bank_details: Optional[str] = None
+    notes: Optional[str] = None
+ 
+ 
+class InvoiceOut(InvoiceBase):
+    id: UUID
+    ingestion_id: Optional[UUID] = None
+    line_items: list[InvoiceLineItemOut] = []
+    created_at: datetime
+    updated_at: datetime
+ 
+    class Config:
+        from_attributes = True
+ 
+ 
+class InvoiceUpdate(BaseModel):
+    """Partial update — only included fields are changed."""
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+    due_date: Optional[str] = None
+    po_number: Optional[str] = None
+    currency: Optional[str] = None
+    vendor_name: Optional[str] = None
+    vendor_address: Optional[str] = None
+    buyer_name: Optional[str] = None
+    buyer_address: Optional[str] = None
+    subtotal: Optional[float] = None
+    tax_amount: Optional[float] = None
+    total_amount: Optional[float] = None
+    amount_due: Optional[float] = None
+    payment_terms: Optional[str] = None
+    notes: Optional[str] = None
+ 
+ 
+# ---------------------------------------------------------------------------
+# Ingestion
+# ---------------------------------------------------------------------------
+class InvoiceIngestionOut(BaseModel):
+    id: UUID
+    filename: str
+    status: str
+    extracted_json: Optional[dict] = None
+    error_message: Optional[str] = None
+    invoice: Optional[InvoiceOut] = None
+    created_at: datetime
+    updated_at: datetime
+ 
+    class Config:
+        from_attributes = True
+ 
+ 
+class InvoiceIngestionListItem(BaseModel):
+    id: UUID
+    filename: str
+    status: str
+    created_at: datetime
+ 
+    class Config:
+        from_attributes = True
